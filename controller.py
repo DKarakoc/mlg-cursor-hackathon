@@ -24,7 +24,9 @@ H_MARGIN = 5.0
 MIN_PHASE_BASE = 12.0
 MIN_PHASE_SLOPE = 2.2
 MIN_PHASE_CAP = 30.0
-SHARE_SCALE = 2.0       # hold time scales by serving axis's demand share x this
+SHARE_BASE = 0.6        # hold multiplier = BASE + SLOPE * serving axis demand share
+SHARE_SLOPE = 0.8       # (0.6/0.8 keeps symmetric maps at x1.0, tempers asymmetric)
+CORRIDOR_SCALE = 2.0    # 1xN / Nx1 corridors: cross axis is minor, hold dominant long
 SHARE_FLOOR = 8.0       # but never below this many ticks
 SHARE_ALPHA = 0.06      # slow EMA so the share tracks demand, not the service cycle
 H_STARVE = 90
@@ -154,7 +156,11 @@ def control(state):
     ema_total = _memory["axis_ema"][current] + _memory["axis_ema"][other]
     if ema_total > 0:
         share = _memory["axis_ema"][current] / ema_total
-        min_phase = max(SHARE_FLOOR, min(MIN_PHASE_CAP, min_phase * SHARE_SCALE * share))
+        if min(rows, cols) == 1:
+            mult = CORRIDOR_SCALE * share
+        else:
+            mult = SHARE_BASE + SHARE_SLOPE * share
+        min_phase = max(SHARE_FLOOR, min(MIN_PHASE_CAP, min_phase * mult))
     if _memory["since"] >= min_phase:
         starved = any(
             intersections[iid]["queues"][d] > 0
