@@ -108,8 +108,13 @@ def control(state):
             _memory.update(heavy=False, mode_age=0)
     elif _memory["ema"] >= HEAVY_ENTER:
         # Seed the rhythm from the majority phase so entry is smooth.
+        # (Deterministic tie-break; set iteration would vary per process.)
         greens = [i["phase"] for i in intersections.values() if i["phase"] in AXIS_DIRECTIONS]
-        majority = max(set(greens), key=greens.count) if greens else "NS_GREEN"
+        majority = (
+            "NS_GREEN"
+            if greens.count("NS_GREEN") >= greens.count("EW_GREEN")
+            else "EW_GREEN"
+        )
         _memory.update(heavy=True, mode_age=0, phase=majority, since=0)
 
     if not _memory["heavy"]:
