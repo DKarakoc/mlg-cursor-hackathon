@@ -32,7 +32,7 @@ SHARE_ALPHA = 0.06      # slow EMA so the share tracks demand, not the service c
 H_STARVE = 90
 H_BLOCK_DISCOUNT = 0.0  # helps city-rush but hurts elongated grids; keep off for robustness
 # Light mode (per intersection)
-L_GAIN = 1.6
+L_GAIN = 1.8
 L_MARGIN = 2.0
 L_DOWNSTREAM = 0.4
 L_BLOCK = 11
