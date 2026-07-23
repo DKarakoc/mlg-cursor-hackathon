@@ -34,6 +34,10 @@ H_BLOCK_DISCOUNT = 0.0  # helps city-rush but hurts elongated grids; keep off fo
 # Light mode (per intersection)
 L_GAIN = 1.8
 L_MARGIN = 2.0
+L_MARGIN_POST = 2.0     # light-mode margin after the first heavy episode
+L_MARGIN_ASYM = 2.1     # light-mode margin when demand is axis-asymmetric
+ASYM_THRESH = 0.66      # dominant-axis queue share that counts as asymmetric
+ASYM_ALPHA = 0.05
 L_DOWNSTREAM = 0.4
 L_BLOCK = 11
 L_STARVE = 80
@@ -51,7 +55,8 @@ AXIS_DIRECTIONS = {"NS_GREEN": ("N", "S"), "EW_GREEN": ("E", "W")}
 
 _memory = {
     "tick": -1, "phase": "NS_GREEN", "since": 0, "ema": 0.0, "heavy": False,
-    "mode_age": 0, "axis_ema": {"NS_GREEN": 1.0, "EW_GREEN": 1.0},
+    "ever_heavy": False, "mode_age": 0, "asym": 0.5,
+    "axis_ema": {"NS_GREEN": 1.0, "EW_GREEN": 1.0},
 }
 
 
@@ -59,8 +64,8 @@ def control(state):
     tick = state["tick"]
     if tick <= _memory["tick"]:
         _memory.update(
-            phase="NS_GREEN", since=0, ema=0.0, heavy=False, mode_age=0,
-            axis_ema={"NS_GREEN": 1.0, "EW_GREEN": 1.0},
+            phase="NS_GREEN", since=0, ema=0.0, heavy=False, ever_heavy=False,
+            mode_age=0, asym=0.5, axis_ema={"NS_GREEN": 1.0, "EW_GREEN": 1.0},
         )
     _memory["tick"] = tick
 
@@ -98,6 +103,10 @@ def control(state):
     # lengths keep the per-intersection average (tuned separately).
     total_queued = sum(q for info in intersections.values() for q in info["queues"].values())
     per_intersection = total_queued / len(intersections)
+    q_ns = sum(info["queues"][d] for info in intersections.values() for d in "NS")
+    if total_queued > 0:
+        dominant = max(q_ns, total_queued - q_ns) / total_queued
+        _memory["asym"] = _memory["asym"] * (1 - ASYM_ALPHA) + ASYM_ALPHA * dominant
     mode_signal = total_queued / (rows + cols)
     alpha = MODE_ALPHA_UP if mode_signal > _memory["ema"] else MODE_ALPHA_DOWN
     _memory["ema"] = _memory["ema"] * (1 - alpha) + alpha * mode_signal
@@ -117,7 +126,7 @@ def control(state):
             if greens.count("NS_GREEN") >= greens.count("EW_GREEN")
             else "EW_GREEN"
         )
-        _memory.update(heavy=True, mode_age=0, phase=majority, since=0)
+        _memory.update(heavy=True, ever_heavy=True, mode_age=0, phase=majority, since=0)
 
     if not _memory["heavy"]:
         endgame_bonus = make_endgame(L_ENDGAME_TICKS, L_SAVABLE_WEIGHT)
@@ -185,6 +194,14 @@ def control(state):
     return decisions
 
 
+def _light_margin():
+    if _memory["ever_heavy"]:
+        return L_MARGIN_POST
+    if _memory["asym"] >= ASYM_THRESH:
+        return L_MARGIN_ASYM
+    return L_MARGIN
+
+
 def _light(state, intersections, neighbor, link_occupancy, endgame_bonus):
     def movement(iid, direction, is_green):
         queue = intersections[iid]["queues"][direction]
@@ -222,7 +239,7 @@ def _light(state, intersections, neighbor, link_occupancy, endgame_bonus):
         switch = False
         if servable[green_axis] == 0 and servable[other] > 0:
             switch = pressure[other] > pressure[green_axis]
-        elif pressure[other] > pressure[green_axis] * L_GAIN + L_MARGIN:
+        elif pressure[other] > pressure[green_axis] * L_GAIN + _light_margin():
             switch = True
         elif servable[other] > 0:
             switch = any(
