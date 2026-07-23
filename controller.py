@@ -28,7 +28,7 @@ SHARE_SCALE = 2.0       # hold time scales by serving axis's demand share x this
 SHARE_FLOOR = 8.0       # but never below this many ticks
 SHARE_ALPHA = 0.06      # slow EMA so the share tracks demand, not the service cycle
 H_STARVE = 90
-H_BLOCK_DISCOUNT = 0.3  # discount heavy-mode weight of spillback-blocked movements
+H_BLOCK_DISCOUNT = 0.0  # helps city-rush but hurts elongated grids; keep off for robustness
 # Light mode (per intersection)
 L_GAIN = 1.6
 L_MARGIN = 2.0
