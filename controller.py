@@ -40,7 +40,7 @@ ASYM_THRESH = 0.66      # dominant-axis queue share that counts as asymmetric
 ASYM_ALPHA = 0.05
 L_DOWNSTREAM = 0.4
 L_BLOCK = 11
-L_STARVE = 80
+L_STARVE = 100
 # Shared
 INCOMING_GREEN = 0.5
 INCOMING_RED = 0.25
